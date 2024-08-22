@@ -914,55 +914,74 @@ void UTIL_FixAngles(Vector* Angles) {
 	Angles->z = 0.0f;
 }
 
+char *Q_strcat(char *dest, size_t size, const char *src) {
+	size_t dest_len = strlen(dest);
+	size_t src_len = strlen(src);
+
+	if (dest_len + src_len >= size)
+	{
+    // Not enough space, truncate
+		src_len = size - dest_len - 1;
+	}
+
+	memcpy(dest + dest_len, src, src_len);
+	dest[dest_len + src_len] = '\0';
+
+	return dest + dest_len + src_len;
+}
+
+size_t Q_strlen(const char *str) {
+	if (!str)
+		return 0;
+
+	const char *s = str;
+	while (*s)
+		s++;
+
+	return s - str;
+}
+
 void UTIL_SayTextBot(const char* pText, cBot* pBot) {
 	if (gmsgSayText == 0)
 		gmsgSayText = REG_USER_MSG("SayText", -1);
 
-	char szTemp[160];
+	char text[128];
+	char szTemp[256];
 	char szName[BOT_NAME_LEN + 1];
 	int i;
+	int j;
+
+	strncpy(text, pText, sizeof(text) - 1);
+	text[sizeof(text) - 1] = '\0';
 
 	// clear out
 	std::memset(szTemp, 0, sizeof(szTemp));
 	std::memset(szName, 0, sizeof(szName));
 
-	// init
-	szTemp[0] = 2;
+	const char *pszFormat = nullptr;
+
+	if (!IsAlive(pBot->pEdict)) {
+		pszFormat = "\x1*DEAD* \x3%s \x1: %s";
+	} else {
+		pszFormat = "\x1\x3%s \x1: %s";
+	}
+
+	std::strcpy(szName, pBot->name);
+
+	// Format the message
+	snprintf(szTemp, sizeof(szTemp), pszFormat, szName, pText);
 
 	const int entind = ENTINDEX(pBot->pEdict);
 
-	if (IsAlive(pBot->pEdict)) {
-		std::strcpy(szName, pBot->name);
-		for (i = 1; i <= gpGlobals->maxClients; i++) {
-			edict_t* pPlayer = INDEXENT(i);
-
-			// valid
-			if (pPlayer)
-				if (IsAlive(pPlayer))       // alive
-				{
-					MESSAGE_BEGIN(MSG_ONE, gmsgSayText, nullptr, pPlayer);
-					WRITE_BYTE(entind);
-					std::sprintf(&szTemp[1], "%s :   %s", szName, pText);
-					WRITE_STRING(&szTemp[0]);
-					MESSAGE_END();
-				}
+	for (i = 1; i <= gpGlobals->maxClients; i++) {
+		edict_t* pPlayer = INDEXENT(i);
+		if (pPlayer && (IsAlive(pPlayer) || !IsAlive(pBot->pEdict))) {
+			MESSAGE_BEGIN(MSG_ONE, gmsgSayText, nullptr, pPlayer);
+			WRITE_BYTE(entind);
+			WRITE_STRING(szTemp);
+			MESSAGE_END();
 		}
 	}
-	else {
-		std::strcpy(szName, pBot->name);
-		for (i = 1; i <= gpGlobals->maxClients; i++) {
-			edict_t* pPlayer = INDEXENT(i);
-			if (pPlayer)
-				if (!IsAlive(pPlayer)) {
-					MESSAGE_BEGIN(MSG_ONE, gmsgSayText, nullptr, pPlayer);
-					WRITE_BYTE(entind);
-					std::sprintf(&szTemp[1], "*DEAD*%s :   %s", szName, pText);
-					WRITE_STRING(&szTemp[0]);
-					MESSAGE_END();
-				}
-		}
-	}
-
 
 	// pass through on ChatEngine (not always)
 	if (RANDOM_LONG(0, 100) < 90) {
