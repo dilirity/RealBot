@@ -1178,7 +1178,7 @@ bool BOT_DecideTakeCover(cBot *pBot) {
 // logs into a file
 void rblog(const char* txt) {
     // output to stdout
-    printf("%s", txt);
+    // printf("%s", txt);
 
     // and to reallog file
     if (fpRblog) {
